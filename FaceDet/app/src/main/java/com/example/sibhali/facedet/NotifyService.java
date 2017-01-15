@@ -125,7 +125,7 @@ public class NotifyService extends Service {
                         NotificationCompat.BigPictureStyle bps = new NotificationCompat.BigPictureStyle().bigPicture(MainActivity.frame);
                         notifBuilder.setStyle(bps);
                         warnBuilder2.setStyle(bps);
-
+                        System.out.println(p);
                         if (p == 1) {
                             notificationManager.notify(MY_NOTIFICATION_ID, notifBuilder.build());
                         }
