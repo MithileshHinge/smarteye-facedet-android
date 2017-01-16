@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -12,6 +13,8 @@ import android.widget.CompoundButton;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.ToggleButton;
+
+import java.io.FileInputStream;
 
 public class MainActivity extends AppCompatActivity {
     public static ImageView jIV;
@@ -34,6 +37,12 @@ public class MainActivity extends AppCompatActivity {
         ToggleButton xB = (ToggleButton) findViewById(R.id.xB);
         assert xB != null;
 
+        Intent intent = getIntent();
+        String imageName = intent.getStringExtra("image_name");
+        if (imageName != null){
+            frame = getImageBitmap(context, imageName);
+            jIV.setImageBitmap(frame);
+        }
 
         xB.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
             @Override
@@ -66,6 +75,18 @@ public class MainActivity extends AppCompatActivity {
         super.onStop();
     }
 
+    public Bitmap getImageBitmap(Context context,String name){
+        name=name+".jpg";
+        try{
+            FileInputStream fis = context.openFileInput(name);
+            Bitmap b = BitmapFactory.decodeStream(fis);
+            fis.close();
+            return b;
+        }
+        catch(Exception e){
+        }
+        return null;
+    }
 
 
 }

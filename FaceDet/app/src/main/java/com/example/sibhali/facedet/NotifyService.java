@@ -19,10 +19,13 @@ import android.support.v4.app.TaskStackBuilder;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * Created by Sibhali on 12/19/2016.
@@ -40,7 +43,10 @@ public class NotifyService extends Service {
     //public static String servername;
     private NotificationManager notificationManager;
 
-    private Thread t;
+    private Bitmap frame;
+
+
+    private static Thread t;
 
     @Override
     public void onCreate() {
@@ -57,7 +63,7 @@ public class NotifyService extends Service {
 
         //Send notification
 
-        Context context = getApplicationContext();
+        final Context context = getApplicationContext();
         String notifTitle = "Someone's at your door!";
         String notifText = "";
 
@@ -65,32 +71,27 @@ public class NotifyService extends Service {
         String warnTitle2 = "Suspicious activity";
         String warnText2 = "Alert!";
 
-        final NotificationCompat.Builder notifBuilder = new NotificationCompat.Builder(context).setSmallIcon(R.drawable.ic_notif).setContentTitle(notifTitle).setContentText(notifText).setAutoCancel(true);
-        final NotificationCompat.Builder warnBuilder2 = new NotificationCompat.Builder(warning_context2).setSmallIcon(R.drawable.ic_warn).setContentTitle(warnTitle2).setContentText(warnText2).setAutoCancel(true);
+        final NotificationCompat.Builder notifBuilder = new NotificationCompat.Builder(context).setSmallIcon(R.drawable.ic_notif).setContentTitle(notifTitle).setContentText(notifText).setAutoCancel(false);
+        final NotificationCompat.Builder warnBuilder2 = new NotificationCompat.Builder(warning_context2).setSmallIcon(R.drawable.ic_warn).setContentTitle(warnTitle2).setContentText(warnText2).setAutoCancel(false);
 
         notifBuilder.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION));
         warnBuilder2.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM));
-
-
-        Intent myIntent = new Intent(getApplicationContext(), MainActivity.class);
-
-        TaskStackBuilder stackBuilder = TaskStackBuilder.create(context);
-        stackBuilder.addParentStack(MainActivity.class);
-        stackBuilder.addNextIntent(myIntent);
-
-        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
-
-        notifBuilder.setContentIntent(pendingIntent);
-        warnBuilder2.setContentIntent(pendingIntent);
 
         notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
         Toast.makeText(this, "Notification service started", Toast.LENGTH_LONG).show();
 
+        final Intent myIntent = new Intent(getApplicationContext(), MainActivity.class);
+
+        final TaskStackBuilder stackBuilder = TaskStackBuilder.create(context);
+        stackBuilder.addParentStack(MainActivity.class);
+
         SharedPreferences sp = getApplicationContext().getSharedPreferences("myPrefs", MODE_PRIVATE);
         final String servername = sp.getString("Pref_IP", "0");
         Log.d("servername", servername);
+
         final Handler handler = new Handler();
+
         t = new Thread(new Runnable() {
             @Override
             public void run() {
@@ -100,32 +101,46 @@ public class NotifyService extends Service {
                         System.out.println("CONNECTED "+"to " + servername);
                         InputStream in = client.getInputStream();
                         //OutputStream out = client.getOutputStream();
-                        int p =in.read();
+                        int p = in.read();
                         System.out.println(p);
                         client.close();
+
                         try {
                             Socket socket_frame = new Socket(servername, 6666);
-                            System.out.println("RECIEVING FRAMES");
+                            System.out.println("RECEIVING FRAMES");
 
                             InputStream in_frame = socket_frame.getInputStream();
-                            MainActivity.frame = BitmapFactory.decodeStream(new FlushedInputStream(in_frame));
+                            frame = BitmapFactory.decodeStream(new FlushedInputStream(in_frame));
                         }catch (IOException e1){
                             e1.printStackTrace();
                         }
 
                         System.out.println("FRAME RECEIVED");
 
-                        handler.post(new Runnable() {
-                            @Override
-                            public void run() {
-                                MainActivity.jIV.setImageBitmap(MainActivity.frame);
-                            }
-                        });
+                        String imageName = getCurrentTimeStamp();
+                        saveImage(context, frame, imageName);
 
-                        NotificationCompat.BigPictureStyle bps = new NotificationCompat.BigPictureStyle().bigPicture(MainActivity.frame);
+                        myIntent.putExtra("image_name", imageName);
+                        stackBuilder.addNextIntent(myIntent);
+
+                        PendingIntent pendingIntent = stackBuilder.getPendingIntent(0, PendingIntent.FLAG_UPDATE_CURRENT);
+
+                        NotificationCompat.BigPictureStyle bps = new NotificationCompat.BigPictureStyle().bigPicture(frame);
                         notifBuilder.setStyle(bps);
                         warnBuilder2.setStyle(bps);
-                        System.out.println(p);
+
+                        notifBuilder.setContentIntent(pendingIntent);
+                        warnBuilder2.setContentIntent(pendingIntent);
+
+                        if (MainActivity.jIV != null){
+                            handler.post(new Runnable() {
+                                @Override
+                                public void run() {
+                                    MainActivity.jIV.setImageBitmap(frame);
+                                }
+                            });
+                        }
+
                         if (p == 1) {
                             notificationManager.notify(MY_NOTIFICATION_ID, notifBuilder.build());
                         }
@@ -170,4 +185,22 @@ public class NotifyService extends Service {
         }
     }
 
+    public void saveImage(Context context, Bitmap b,String name){
+        name=name+".jpg";
+        FileOutputStream out;
+        try {
+            out = context.openFileOutput(name, Context.MODE_PRIVATE);
+            b.compress(Bitmap.CompressFormat.JPEG, 90, out);
+            out.close();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static String getCurrentTimeStamp() {
+        SimpleDateFormat sdfDate = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");//dd/MM/yyyy
+        Date now = new Date();
+        String strDate = sdfDate.format(now);
+        return strDate;
+    }
 }
